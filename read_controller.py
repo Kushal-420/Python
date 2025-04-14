@@ -1,59 +1,77 @@
 import pygame
 import time
 
-# Initialize pygame
-pygame.init()
+# Constants
+AXIS_THRESHOLD = 0.5
+DELAY = 0.1
 
-# Set up the Xbox controller
+# Initialize pygame and joystick
+pygame.init()
 pygame.joystick.init()
-try:
+
+def init_controller():
+    if pygame.joystick.get_count() == 0:
+        print("No joystick connected.")
+        return None
     controller = pygame.joystick.Joystick(0)
     controller.init()
-except pygame.error:
-    print("No joystick found.")
+    print(f"Controller initialized: {controller.get_name()}")
+    return controller
 
-def read_controller():
-    pygame.event.pump()
+def get_input_state(controller):
+    pygame.event.pump()  # Updates internal input state
+
+    state = {
+        "left_x": controller.get_axis(0),
+        "left_y": controller.get_axis(1),
+        "right_x": controller.get_axis(3),
+        "right_y": controller.get_axis(4),
+        "buttons": {
+            "A": controller.get_button(0),
+            "B": controller.get_button(1),
+            "X": controller.get_button(2),
+            "Y": controller.get_button(3),
+        }
+    }
+    return state
+
+def interpret_input(state):
+    x, y = state["left_x"], state["left_y"]
+
+    if y < -AXIS_THRESHOLD:
+        return "Forward"
+    elif y > AXIS_THRESHOLD:
+        return "Backward"
+    elif x < -AXIS_THRESHOLD:
+        return "Left"
+    elif x > AXIS_THRESHOLD:
+        return "Right"
     
-    # Axis values for left joystick
-    left_axis_x = controller.get_axis(0)
-    left_axis_y = controller.get_axis(1)
+    for btn, pressed in state["buttons"].items():
+        if pressed:
+            return f"{btn} Button Pressed"
 
-    # Axis values for right joystick
-    right_axis_x = controller.get_axis(3)
-    right_axis_y = controller.get_axis(4)
+    return "Neutral"
 
-    # Buttons
-    a_button = controller.get_button(0)
-    b_button = controller.get_button(1)
-    x_button = controller.get_button(2)
-    y_button = controller.get_button(3)
+def main():
+    controller = init_controller()
+    if controller is None:
+        return
 
-    # Map the axis values and button presses to commands
-    if left_axis_y < -0.5:
-        print("Forward")
-    elif left_axis_y > 0.5:
-        print("Backward")
-    elif left_axis_x < -0.5:
-        print("Left")
-    elif left_axis_x > 0.5:
-        print("Right")
-    elif a_button:
-        print("A Button Pressed")
-    elif b_button:
-        print("B Button Pressed")
-    elif x_button:
-        print("X Button Pressed")
-    elif y_button:
-        print("Y Button Pressed")
-    else:
-        print("Neutral")
+    last_state = ""
+    try:
+        while True:
+            state = get_input_state(controller)
+            action = interpret_input(state)
+            if action != last_state:
+                print(action)
+                last_state = action
+            time.sleep(DELAY)
+    except KeyboardInterrupt:
+        print("\nController reading stopped.")
+    finally:
+        pygame.joystick.quit()
+        pygame.quit()
 
-try:
-    while True:
-        read_controller()
-        time.sleep(0.1)
-except KeyboardInterrupt:
-    pygame.joystick.quit()
-    pygame.quit()
-    print("Controller reading stopped.")
+if __name__ == "__main__":
+    main()
